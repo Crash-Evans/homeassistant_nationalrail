@@ -63,7 +63,7 @@ class NationalRailScheduleCoordinator(DataUpdateCoordinator):
         destinations = destinations.split(",")
         self.station = station
         self.destinations = destinations
-        self.my_api = NationalRailClient(token, station, destinations)
+        self.my_api = NationalRailClient(token, station, destinations, apiTest=False)
 
         self.last_data_refresh = None
 
@@ -94,6 +94,7 @@ class NationalRailScheduleCoordinator(DataUpdateCoordinator):
             async with async_timeout.timeout(30):
                 data = await self.my_api.async_get_data()
                 self.last_data_refresh = time.time()
+
             # except aiohttp.ClientError as err:
             #    raise UpdateFailed(f"Error communicating with API: {err}") from err
 
@@ -166,7 +167,7 @@ class NationalRailSchedule(CoordinatorEntity):
 
     attribution = "This uses National Rail Darwin Data Feeds"
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: NationalRailScheduleCoordinator):
         """Pass coordinator to CoordinatorEntity."""
         super().__init__(coordinator)
         self.entity_id = f"sensor.{coordinator.data['name'].lower()}"
@@ -174,6 +175,7 @@ class NationalRailSchedule(CoordinatorEntity):
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
+        # print(self.coordinator.data)
         return self.coordinator.data
 
     @property
@@ -187,3 +189,7 @@ class NationalRailSchedule(CoordinatorEntity):
         return (
             self.coordinator.last_data_refresh
         )  # self.coordinator.data["next_train_expected"]
+
+    @property
+    def available(self) -> bool:
+        return True

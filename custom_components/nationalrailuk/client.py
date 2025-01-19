@@ -52,7 +52,7 @@ def rebuild_date(base, time):
 class NationalRailClient:
     """Client for the National Rail API"""
 
-    def __init__(self, api_token, station, destinations) -> None:
+    def __init__(self, api_token, station, destinations, apiTest=False) -> None:
         self.station = station
         self.api_token = api_token
         self.destinations = destinations if destinations is not None else []
@@ -79,6 +79,8 @@ class NationalRailClient:
         self.history = HistoryPlugin()
 
         self.client = AsyncClient(wsdl=WSDL, settings=settings, plugins=[self.history])
+
+        self.apitest = apiTest
 
         # Prepackage the authorisation token
         header = xsd.Element(
@@ -115,20 +117,32 @@ class NationalRailClient:
                         _soapheaders=[self.header_value],
                     )
 
-                    # Build header info
-                    if not res[each]["generatedAt"]:
-                        res[each]["generatedAt"] = batch["generatedAt"]
-                        res[each]["locationName"] = batch["locationName"]
-                        res[each]["crs"] = batch["crs"]
-                        res[each]["filterLocationName"] = batch["filterLocationName"]
-                        res[each]["filtercrs"] = batch["filtercrs"]
+                    if not self.apitest:
+                        # try:
+                        # Build header info
+                        if not res[each]["generatedAt"]:
+                            res[each]["generatedAt"] = batch["generatedAt"]
+                            res[each]["locationName"] = batch["locationName"]
+                            res[each]["crs"] = batch["crs"]
+                            res[each]["filterLocationName"] = batch[
+                                "filterLocationName"
+                            ]
+                            res[each]["filtercrs"] = batch["filtercrs"]
 
-                    if not res[each][ft["keyName"]]:
-                        res[each][ft["keyName"]] = batch["trainServices"]["service"]
-                    else:
-                        res[each][ft["keyName"]].append(
-                            batch["trainServices"]["service"]
-                        )
+                        # print(batch)
+
+                        if not res[each][ft["keyName"]]:
+                            res[each][ft["keyName"]] = batch["trainServices"]["service"]
+                        else:
+                            res[each][ft["keyName"]].append(
+                                batch["trainServices"]["service"]
+                            )
+                        # except (KeyError, TypeError) as err:
+                        #     raise NationalRailClientException(
+                        #         "No train services returned from API"
+                        #     ) from err
+                        # except Fault as err:
+                        #     raise NationalRailClientException("Unknown error") from err
 
         # with open("output.txt", "w") as convert_file:
         #     convert_file.write(str(res))
@@ -385,12 +399,16 @@ class NationalRailClient:
         # with open("output.txt", "w") as convert_file:
         #     convert_file.write(str(raw_data))
 
-        try:
-            _LOGGER.info("Procession station schedule for %s", self.station)
-            data = self.process_data(raw_data)
-            # with open("output.json", "w") as convert_file:
-            #     convert_file.write(str(data))
-        except Exception as err:
-            _LOGGER.exception("Exception whilst processing data: ")
-            raise NationalRailClientException("unexpected data from api") from err
-        return data
+        if not self.apitest:
+            # print(f"API test: {self.apitest}")
+            try:
+                _LOGGER.info("Procession station schedule for %s", self.station)
+                data = self.process_data(raw_data)
+                # with open("output.json", "w") as convert_file:
+                #     convert_file.write(str(data))
+            except Exception as err:
+                _LOGGER.exception("Exception whilst processing data: ")
+                raise NationalRailClientException("unexpected data from api") from err
+            return data
+
+        return {}

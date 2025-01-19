@@ -47,7 +47,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     # validate the token by calling a known line
 
     try:
-        my_api = NationalRailClient(data[CONF_TOKEN], "STP", ["ZFD"])
+        my_api = NationalRailClient(data[CONF_TOKEN], "STP", ["ZFD"], apiTest=True)
         res = await my_api.async_get_data()
     except NationalRailClientInvalidToken as err:
         _LOGGER.exception(err)
@@ -57,9 +57,13 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     try:
         my_api = NationalRailClient(
-            data[CONF_TOKEN], data[CONF_STATION], data[CONF_DESTINATIONS].split(",")
+            data[CONF_TOKEN],
+            data[CONF_STATION],
+            data[CONF_DESTINATIONS].split(","),
+            apiTest=False,
         )
         res = await my_api.async_get_data()
+        # print(res)
     except NationalRailClientInvalidInput as err:
         _LOGGER.exception(err)
         raise InvalidInput() from err
@@ -114,6 +118,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class InvalidToken(HomeAssistantError):
     """Error to indicate the Token is invalid."""
+
+    # print("Invalid token called")
 
 
 class InvalidInput(HomeAssistantError):
