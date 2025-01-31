@@ -118,31 +118,33 @@ class NationalRailClient:
                     )
 
                     if not self.apitest:
-                        # try:
-                        # Build header info
-                        if not res[each]["generatedAt"]:
-                            res[each]["generatedAt"] = batch["generatedAt"]
-                            res[each]["locationName"] = batch["locationName"]
-                            res[each]["crs"] = batch["crs"]
-                            res[each]["filterLocationName"] = batch[
-                                "filterLocationName"
-                            ]
-                            res[each]["filtercrs"] = batch["filtercrs"]
+                        try:
+                            # Build header info
+                            if not res[each]["generatedAt"]:
+                                res[each]["generatedAt"] = batch["generatedAt"]
+                                res[each]["locationName"] = batch["locationName"]
+                                res[each]["crs"] = batch["crs"]
+                                res[each]["filterLocationName"] = batch[
+                                    "filterLocationName"
+                                ]
+                                res[each]["filtercrs"] = batch["filtercrs"]
 
-                        # print(batch)
-
-                        if not res[each][ft["keyName"]]:
-                            res[each][ft["keyName"]] = batch["trainServices"]["service"]
-                        else:
-                            res[each][ft["keyName"]].append(
-                                batch["trainServices"]["service"]
-                            )
-                        # except (KeyError, TypeError) as err:
-                        #     raise NationalRailClientException(
-                        #         "No train services returned from API"
-                        #     ) from err
-                        # except Fault as err:
-                        #     raise NationalRailClientException("Unknown error") from err
+                            # print(batch)
+                            if batch["trainServices"]:
+                                if not res[each][ft["keyName"]]:
+                                    res[each][ft["keyName"]] = batch["trainServices"][
+                                        "service"
+                                    ]
+                                else:
+                                    res[each][ft["keyName"]].append(
+                                        batch["trainServices"]["service"]
+                                    )
+                        except (KeyError, TypeError, NameError) as err:
+                            raise NationalRailClientException(
+                                f"No train services returned from API for {self.station} to {each}"
+                            ) from err
+                        except Fault as err:
+                            raise NationalRailClientException("Unknown error") from err
 
         # with open("output.txt", "w") as convert_file:
         #     convert_file.write(str(res))
@@ -215,7 +217,8 @@ class NationalRailClient:
                 status["trains"] = []
 
                 if not services_list:
-                    return status
+                    res["dests"][each][ft["displayName"]] = {}
+                    continue
 
                 for service in services_list:
                     train = {}
