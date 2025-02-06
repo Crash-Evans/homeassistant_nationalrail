@@ -87,7 +87,7 @@ class NationalRailClient:
         httpx_client = httpx.AsyncClient(verify=True, timeout=300)
         transport = AsyncTransport(client=httpx_client, wsdl_client=wsdl_client)
         self.client = AsyncClient(
-            wsdl=WSDL, transport=transport, settings=settings, plugins=[history]
+            wsdl=WSDL, transport=transport, settings=settings, plugins=[self.history]
         )
 
         self.apitest = apiTest
