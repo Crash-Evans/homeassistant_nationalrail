@@ -5,9 +5,11 @@ import logging
 import datetime
 from datetime import datetime, timedelta
 
+import httpx
 from zeep import AsyncClient, Settings, xsd
 from zeep.exceptions import Fault
 from zeep.plugins import HistoryPlugin
+from zeep.transports import AsyncTransport
 
 from .const import WSDL
 
@@ -78,7 +80,15 @@ class NationalRailClient:
 
         self.history = HistoryPlugin()
 
-        self.client = AsyncClient(wsdl=WSDL, settings=settings, plugins=[self.history])
+        wsdl_client = httpx.Client(
+            verify=True,
+            timeout=300,
+        )
+        httpx_client = httpx.AsyncClient(verify=True, timeout=300)
+        transport = AsyncTransport(client=httpx_client, wsdl_client=wsdl_client)
+        self.client = AsyncClient(
+            wsdl=WSDL, transport=transport, settings=settings, plugins=[self.history]
+        )
 
         self.apitest = apiTest
 
