@@ -167,6 +167,8 @@ class NationalRailSchedule(CoordinatorEntity):
 
     attribution = "This uses National Rail Darwin Data Feeds"
 
+    _unrecorded_attributes = frozenset({"dests"})
+
     def __init__(self, coordinator: NationalRailScheduleCoordinator):
         """Pass coordinator to CoordinatorEntity."""
         super().__init__(coordinator)
@@ -193,3 +195,7 @@ class NationalRailSchedule(CoordinatorEntity):
     @property
     def available(self) -> bool:
         return True
+
+    @property
+    def icon(self) -> str | None:
+        return "mdi:train"
