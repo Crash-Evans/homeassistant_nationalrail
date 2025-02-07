@@ -5,6 +5,8 @@ import logging
 import datetime
 from datetime import datetime, timedelta
 
+import json
+
 import httpx
 from zeep import AsyncClient, Settings, xsd
 from zeep.exceptions import Fault
@@ -127,6 +129,11 @@ class NationalRailClient:
                         _soapheaders=[self.header_value],
                     )
 
+                    # with open(
+                    #     f"{self.station}_{ft["keyName"]}_{each}.txt", "w"
+                    # ) as res_file:
+                    #     res_file.write(str(batch))
+
                     if not self.apitest:
                         try:
                             # Build header info
@@ -138,6 +145,18 @@ class NationalRailClient:
                                     "filterLocationName"
                                 ]
                                 res[each]["filtercrs"] = batch["filtercrs"]
+
+                                if (
+                                    batch["nrccMessages"]
+                                    and batch["nrccMessages"]["message"]
+                                ):
+                                    res[each]["messages"] = []
+                                    for message in batch["nrccMessages"]["message"]:
+                                        res[each]["messages"].append(
+                                            message["_value_1"]
+                                        )
+                                else:
+                                    res[each]["messages"] = ""
 
                             # print(batch)
                             if batch["trainServices"]:
@@ -219,6 +238,7 @@ class NationalRailClient:
 
             res["station"] = json_message_in[each]["locationName"]
             time_base = json_message_in[each]["generatedAt"]
+            res["dests"][each]["messages"] = json_message_in[each]["messages"]
 
             for ft in self.keys:
                 services_list = json_message_in[each][ft["keyName"]]
