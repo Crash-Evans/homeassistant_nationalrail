@@ -1,4 +1,5 @@
 """The National Rail UK integration."""
+
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
@@ -6,7 +7,15 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .client import NationalRailClient
-from .const import DOMAIN, PLATFORMS
+from .const import DOMAIN, PLATFORMS, NATIONAL_RAIL_DATA_CLIENT
+
+
+def setup(hass: HomeAssistant, config):
+    hass.data.setdefault(DOMAIN, {})
+
+    hass.data[DOMAIN][NATIONAL_RAIL_DATA_CLIENT] = NationalRailClient(hass)
+
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

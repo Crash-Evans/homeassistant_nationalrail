@@ -13,6 +13,8 @@ from zeep.exceptions import Fault
 from zeep.plugins import HistoryPlugin
 from zeep.transports import AsyncTransport
 
+from homeassistant.core import HomeAssistant
+
 from .const import WSDL
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,10 +58,11 @@ def rebuild_date(base, time):
 class NationalRailClient:
     """Client for the National Rail API"""
 
-    def __init__(self, api_token, station, destinations, apiTest=False) -> None:
-        self.station = station
-        self.api_token = api_token
-        self.destinations = destinations if destinations is not None else []
+    # def __init__(self, api_token, station, destinations, apiTest=False) -> None:
+    def __init__(self, hass: HomeAssistant) -> None:
+        # self.station = station
+        # self.api_token = api_token
+        # self.destinations = destinations if destinations is not None else []
 
         # self.ftarr = ["from", "to"]
 
@@ -92,8 +95,26 @@ class NationalRailClient:
             wsdl=WSDL, transport=transport, settings=settings, plugins=[self.history]
         )
 
-        self.apitest = apiTest
+        self.header_value: xsd.Element
 
+        # self.apitest = apiTest
+
+        # Prepackage the authorisation token
+        # header = xsd.Element(
+        #     "{http://thalesgroup.com/RTTI/2013-11-28/Token/types}AccessToken",
+        #     xsd.ComplexType(
+        #         [
+        #             xsd.Element(
+        #                 "{http://thalesgroup.com/RTTI/2013-11-28/Token/types}TokenValue",
+        #                 xsd.String(),
+        #             ),
+        #         ]
+        #     ),
+        # )
+        # self.header_value = header(TokenValue=self.api_token)
+
+    async def set_header(self, api_token):
+        """Set the API header info"""
         # Prepackage the authorisation token
         header = xsd.Element(
             "{http://thalesgroup.com/RTTI/2013-11-28/Token/types}AccessToken",
@@ -106,24 +127,27 @@ class NationalRailClient:
                 ]
             ),
         )
-        self.header_value = header(TokenValue=self.api_token)
 
-    async def get_raw_arrivals_departures(self):
+        self.header_value = header(TokenValue=api_token)
+
+    async def get_raw_arrivals_departures(self, station, destinations, apitest):
         """Get the raw arrivals and departures data from the api"""
-        if len(self.destinations) == 0:
+        # if len(self.destinations) == 0:
+        if len(destinations) == 0:
             res = await self.client.service.GetArrDepBoardWithDetails(
-                numRows=10, crs=self.station, _soapheaders=[self.header_value]
+                numRows=10, crs=station, _soapheaders=[self.header_value]
             )
         else:
             res = {}
 
-            for each in self.destinations:
+            # for each in self.destinations:
+            for each in destinations:
                 res[each] = {"generatedAt": "", "from": {}, "to": {}}
 
                 for ft in self.keys:
                     batch = await self.client.service.GetArrDepBoardWithDetails(
                         numRows=10,
-                        crs=self.station,
+                        crs=station,
                         filterCrs=each,
                         filterType=ft["keyName"],
                         _soapheaders=[self.header_value],
@@ -134,7 +158,7 @@ class NationalRailClient:
                     # ) as res_file:
                     #     res_file.write(str(batch))
 
-                    if not self.apitest:
+                    if not apitest:
                         try:
                             # Build header info
                             if not res[each]["generatedAt"]:
@@ -225,7 +249,7 @@ class NationalRailClient:
             "perturbation": perturbation,
         }
 
-    def process_data(self, json_message_in):
+    def process_data(self, station, destinations, json_message_in):
         """Unpack the data return by the api in a usable format for hass"""
 
         # _LOGGER.debug("Data for processing: %s", json_message)
@@ -233,7 +257,8 @@ class NationalRailClient:
         res = {}
         res["dests"] = {}
 
-        for each in self.destinations:
+        # for each in self.destinations:
+        for each in destinations:
             res["dests"][each] = {}
 
             res["station"] = json_message_in[each]["locationName"]
@@ -289,7 +314,7 @@ class NationalRailClient:
                     selectedCallingPoint = [
                         {
                             "locationName": json_message_in[each]["locationName"],
-                            "crs": self.station,
+                            "crs": station,
                             "st": times["sheduled"],
                             "et": times["estimated"],
                             "at": None,
@@ -413,11 +438,15 @@ class NationalRailClient:
         #     convert_file.write(str(res))
         return res
 
-    async def async_get_data(self):
+    async def async_get_data(self, station, destinations, apitest=False):
         """Data refresh function called by the coordinator"""
         try:
-            _LOGGER.info("Requesting depearture data for %s", self.station)
-            raw_data = await self.get_raw_arrivals_departures()
+            # _LOGGER.info("Requesting depearture data for %s", self.station)
+            # raw_data = await self.get_raw_arrivals_departures()
+            _LOGGER.info("Requesting depearture data for %s", station)
+            raw_data = await self.get_raw_arrivals_departures(
+                station, destinations, apitest
+            )
         except Fault as err:
             _LOGGER.exception("Exception whilst fetching data: ")
             if err.message == "Unknown fault occured":
@@ -432,11 +461,13 @@ class NationalRailClient:
         # with open("output.txt", "w") as convert_file:
         #     convert_file.write(str(raw_data))
 
-        if not self.apitest:
+        if not apitest:
             # print(f"API test: {self.apitest}")
             try:
-                _LOGGER.info("Procession station schedule for %s", self.station)
-                data = self.process_data(raw_data)
+                # _LOGGER.info("Procession station schedule for %s", self.station)
+                # data = self.process_data(raw_data)
+                _LOGGER.info("Procession station schedule for %s", station)
+                data = self.process_data(station, destinations, raw_data)
                 # with open("output.json", "w") as convert_file:
                 #     convert_file.write(str(data))
             except Exception as err:

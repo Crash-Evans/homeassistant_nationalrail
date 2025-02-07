@@ -13,6 +13,8 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
+from homeassistant.core import HomeAssistant
+
 from .client import NationalRailClient
 from .const import (
     CONF_DESTINATIONS,
@@ -22,6 +24,7 @@ from .const import (
     HIGH_FREQUENCY_REFRESH,
     POLLING_INTERVALE,
     REFRESH,
+    NATIONAL_RAIL_DATA_CLIENT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,7 +53,7 @@ class NationalRailScheduleCoordinator(DataUpdateCoordinator):
     friendly_name: str = None
     sensor_name: str = None
 
-    def __init__(self, hass, token, station, destinations):
+    def __init__(self, hass: HomeAssistant, token, station, destinations):
         """Initialize my coordinator."""
         super().__init__(
             hass,
@@ -60,12 +63,17 @@ class NationalRailScheduleCoordinator(DataUpdateCoordinator):
             # Polling interval. Will only be polled if there are subscribers.
             update_interval=timedelta(minutes=REFRESH),
         )
+        self.token = token
         destinations = destinations.split(",")
         self.station = station
         self.destinations = destinations
-        self.my_api = NationalRailClient(token, station, destinations, apiTest=False)
+        # self.my_api = NationalRailClient(token, station, destinations, apiTest=False)
+        self.my_api: NationalRailClient = hass.data[DOMAIN][NATIONAL_RAIL_DATA_CLIENT]
 
         self.last_data_refresh = None
+
+    async def _async_setup(self):
+        await self.my_api.set_header(self.token)
 
     async def _async_update_data(self):
         """Fetch data from API endpoint.
@@ -92,7 +100,7 @@ class NationalRailScheduleCoordinator(DataUpdateCoordinator):
             # Note: asyncio.TimeoutError and aiohttp.ClientError are already
             # handled by the data update coordinator.
             async with async_timeout.timeout(30):
-                data = await self.my_api.async_get_data()
+                data = await self.my_api.async_get_data(self.station, self.destinations)
                 self.last_data_refresh = time.time()
 
             # except aiohttp.ClientError as err:

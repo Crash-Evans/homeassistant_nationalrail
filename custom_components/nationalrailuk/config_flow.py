@@ -18,7 +18,13 @@ from .client import (
     NationalRailClientInvalidInput,
     NationalRailClientInvalidToken,
 )
-from .const import CONF_DESTINATIONS, CONF_STATION, CONF_TOKEN, DOMAIN
+from .const import (
+    CONF_DESTINATIONS,
+    CONF_STATION,
+    CONF_TOKEN,
+    DOMAIN,
+    NATIONAL_RAIL_DATA_CLIENT,
+)
 
 from .crs import CRS
 
@@ -45,10 +51,13 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     # TODO validate the data can be used to set up a connection.
 
     # validate the token by calling a known line
+    my_api: NationalRailClient = hass.data[DOMAIN][NATIONAL_RAIL_DATA_CLIENT]
+    await my_api.set_header(data[CONF_TOKEN])
 
     try:
-        my_api = NationalRailClient(data[CONF_TOKEN], "STP", ["ZFD"], apiTest=True)
-        res = await my_api.async_get_data()
+        # my_api = NationalRailClient(data[CONF_TOKEN], "STP", ["ZFD"], apiTest=True)
+
+        res = await my_api.async_get_data("STP", ["ZFD"], apitest=True)
     except NationalRailClientInvalidToken as err:
         _LOGGER.exception(err)
         raise InvalidToken() from err
@@ -56,13 +65,15 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     # validate station input
 
     try:
-        my_api = NationalRailClient(
-            data[CONF_TOKEN],
-            data[CONF_STATION],
-            data[CONF_DESTINATIONS].split(","),
-            apiTest=False,
+        # my_api = NationalRailClient(
+        #     data[CONF_TOKEN],
+        #     data[CONF_STATION],
+        #     data[CONF_DESTINATIONS].split(","),
+        #     apiTest=False,
+        # )
+        res = await my_api.async_get_data(
+            data[CONF_STATION], data[CONF_DESTINATIONS].split(","), apitest=False
         )
-        res = await my_api.async_get_data()
         # print(res)
     except NationalRailClientInvalidInput as err:
         _LOGGER.exception(err)

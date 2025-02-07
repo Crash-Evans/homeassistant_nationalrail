@@ -2,6 +2,7 @@
 
 DOMAIN = "nationalrailuk"
 DOMAIN_DATA = f"{DOMAIN}_data"
+NATIONAL_RAIL_DATA_CLIENT = "data_client"
 
 # Platforms
 SENSOR = "sensor"
