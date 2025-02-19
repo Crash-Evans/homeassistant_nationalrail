@@ -51,6 +51,12 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     # TODO validate the data can be used to set up a connection.
 
     # validate the token by calling a known line
+    if DOMAIN not in hass.data:
+        hass.data.setdefault(DOMAIN, {})
+
+    if NATIONAL_RAIL_DATA_CLIENT not in hass.data[DOMAIN]:
+        hass.data[DOMAIN][NATIONAL_RAIL_DATA_CLIENT] = NationalRailClient(hass)
+
     my_api: NationalRailClient = hass.data[DOMAIN][NATIONAL_RAIL_DATA_CLIENT]
     await my_api.set_header(data[CONF_TOKEN])
 
