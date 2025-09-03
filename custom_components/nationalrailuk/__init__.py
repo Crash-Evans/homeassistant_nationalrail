@@ -7,7 +7,9 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .client import NationalRailClient
-from .const import DOMAIN, PLATFORMS, NATIONAL_RAIL_DATA_CLIENT
+from .const import DOMAIN, NATIONAL_RAIL_DATA_CLIENT
+
+PLATFORMS = [Platform.SENSOR]
 
 
 def setup(hass: HomeAssistant, config):
