@@ -28,6 +28,15 @@ from .const import (
 
 from .crs import CRS
 
+# Journey planner additions (local keys for now)
+CONF_VIA = "via"
+CONF_AVOID = "avoid"
+CONF_MAX_CHANGES = "max_changes"
+CONF_MIN_INTERCHANGE_MINS = "min_interchange_mins"
+CONF_PLANNER_PROVIDER = "planner_provider"
+CONF_TRANSPORTAPI_APP_ID = "transportapi_app_id"
+CONF_TRANSPORTAPI_APP_KEY = "transportapi_app_key"
+
 _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -39,6 +48,20 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_DESTINATIONS): selector(
             {"select": {"options": CRS, "multiple": True, "custom_value": True}}
         ),
+        # Journey planner options
+        vol.Optional(CONF_VIA): selector(
+            {"select": {"options": CRS, "custom_value": True}}
+        ),
+        vol.Optional(CONF_AVOID): selector(
+            {"select": {"options": CRS, "custom_value": True}}
+        ),
+        vol.Optional(CONF_MAX_CHANGES, default=2): int,
+        vol.Optional(CONF_MIN_INTERCHANGE_MINS, default=5): int,
+        vol.Optional(CONF_PLANNER_PROVIDER, default="transportapi"): selector(
+            {"select": {"options": ["transportapi", "ojp"], "custom_value": False}}
+        ),
+        vol.Optional(CONF_TRANSPORTAPI_APP_ID): str,
+        vol.Optional(CONF_TRANSPORTAPI_APP_KEY): str,
     }
 )
 
@@ -69,6 +92,17 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         raise InvalidToken() from err
 
     # validate station input
+    station = str(data[CONF_STATION]).strip().upper()
+    dests_raw = data.get(CONF_DESTINATIONS) or []
+    destinations = [str(d).strip().upper() for d in dests_raw]
+
+    data[CONF_STATION] = station
+    data[CONF_DESTINATIONS] = destinations
+
+    if data.get(CONF_VIA):
+        data[CONF_VIA] = str(data[CONF_VIA]).strip().upper()
+    if data.get(CONF_AVOID):
+        data[CONF_AVOID] = str(data[CONF_AVOID]).strip().upper()
 
     try:
         # my_api = NationalRailClient(
@@ -78,7 +112,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         #     apiTest=False,
         # )
         res = await my_api.async_get_data(
-            data[CONF_STATION], data[CONF_DESTINATIONS].split(","), apitest=False
+            data[CONF_STATION], data[CONF_DESTINATIONS], apitest=False
         )
         # print(res)
     except NationalRailClientInvalidInput as err:
@@ -91,7 +125,9 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     # InvalidAuth
 
     # Return info that you want to store in the config entry.
-    return {"title": f'Train Schedule {data["station"]} -> {data["destinations"]}'}
+    via_suffix = f" via {data[CONF_VIA]}" if data.get(CONF_VIA) else ""
+    dest_str = ",".join(data.get(CONF_DESTINATIONS, [])) or "(any)"
+    return {"title": f"Train Schedule {data[CONF_STATION]} -> {dest_str}{via_suffix}"}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -108,11 +144,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id="user", data_schema=STEP_USER_DATA_SCHEMA
             )
 
-        user_input[CONF_STATION] = user_input[CONF_STATION].strip().upper()
-        user_input[CONF_DESTINATIONS] = (
-            # user_input[CONF_DESTINATIONS].strip().replace(" ", "").upper()
-            (",".join(user_input[CONF_DESTINATIONS])).upper()
-        )
+        if user_input.get(CONF_STATION):
+            user_input[CONF_STATION] = str(user_input[CONF_STATION]).strip().upper()
+        if user_input.get(CONF_DESTINATIONS):
+            user_input[CONF_DESTINATIONS] = [
+                str(d).strip().upper() for d in user_input[CONF_DESTINATIONS]
+            ]
+        if user_input.get(CONF_VIA):
+            user_input[CONF_VIA] = str(user_input[CONF_VIA]).strip().upper()
+        if user_input.get(CONF_AVOID):
+            user_input[CONF_AVOID] = str(user_input[CONF_AVOID]).strip().upper()
 
         errors = {}
 

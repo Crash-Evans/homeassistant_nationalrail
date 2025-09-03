@@ -1,23 +1,30 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Monitor one or more train routes",
-                "description": "Chose the train lines you want to monitor",
-                "data": {
-                    "api_token": "Token for the National rail API",
-                    "station": "Departing station",
-                    "destinations": "Destination station. Multiple station musts be separated by a comma",
-                }
-            }
-        },
-        "error": {
-            "invalid_token": "Invalid National Rail Token",
-            "invalid_station_input": "Invalid station/destination input",
-            "unknown": "[%key:common::config_flow::error::unknown%]",
-        },
-        "abort": {
-            "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+  "config": {
+    "step": {
+      "user": {
+        "title": "Monitor one or more train routes",
+        "description": "Choose the train lines you want to monitor. Destinations can be selected as a list.",
+        "data": {
+          "api_token": "Token for the National Rail API",
+          "station": "Departing station",
+          "destinations": "Destination stations (select one or more)",
+          "via": "Route via (optional)",
+          "avoid": "Avoid station (optional)",
+          "max_changes": "Maximum changes",
+          "min_interchange_mins": "Minimum interchange time (minutes)",
+          "planner_provider": "Journey planner provider",
+          "transportapi_app_id": "TransportAPI App ID",
+          "transportapi_app_key": "TransportAPI App Key"
         }
+      }
+    },
+    "error": {
+      "invalid_token": "Invalid National Rail token",
+      "invalid_station_input": "Invalid station/destination input",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
     }
+  }
 }

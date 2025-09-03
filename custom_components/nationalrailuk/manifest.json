@@ -1,15 +1,15 @@
 {
-    "domain": "nationalrailuk",
-    "name": "National Rail UK (Sam Fork",
-    "config_flow": true,
-    "documentation": "https://github.com/plutomedia987/homeassistant_nationalrail",
-    "requirements": ["zeep[async]==4.3.1"],
-    "ssdp": [],
-    "zeroconf": [],
-    "homekit": {},
-    "dependencies": [],
-    "version": "1.0.4",
-    "codeowners": ["@plutomedia987"],
-    "iot_class": "cloud_polling",
-    "issue_tracker": "https://github.com/plutomedia987/homeassistant_nationalrail/issues"
+  "domain": "nationalrailuk",
+  "name": "National Rail (Journey Planner)",
+  "version": "0.2.0",
+  "config_flow": true,
+  "documentation": "https://github.com/plutomedia987/homeassistant_nationalrail",
+  "requirements": ["httpx>=0.27.0", "zeep>=4.3.0"],
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": [],
+  "codeowners": ["@plutomedia987"],
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/plutomedia987/homeassistant_nationalrail/issues"
 }
