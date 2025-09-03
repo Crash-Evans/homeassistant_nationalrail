@@ -1,209 +1,140 @@
-"""Platform for sensor integration."""
-
 from __future__ import annotations
 
-import logging
-import time
-from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
 
-import async_timeout
-
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
-
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .client import NationalRailClient
 from .const import (
     CONF_DESTINATIONS,
     CONF_STATION,
-    CONF_TOKEN,
+    CONF_VIA,
     DOMAIN,
-    HIGH_FREQUENCY_REFRESH,
-    POLLING_INTERVALE,
-    REFRESH,
-    NATIONAL_RAIL_DATA_CLIENT,
 )
-
-_LOGGER = logging.getLogger(__name__)
-
-
-async def async_setup_entry(hass, entry, async_add_entities):
-    """Config entry example."""
-
-    token = entry.data.get(CONF_TOKEN)
-    station = entry.data.get(CONF_STATION)
-    destinations = entry.data.get(CONF_DESTINATIONS)
-
-    _LOGGER.info(f"Setting up sensor for {station} to {destinations}")
-
-    coordinator = NationalRailScheduleCoordinator(hass, token, station, destinations)
-
-    await coordinator.async_config_entry_first_refresh()
-
-    async_add_entities([NationalRailSchedule(coordinator)])
+from .journey_coordinator import JourneyPlannerCoordinator
 
 
-class NationalRailScheduleCoordinator(DataUpdateCoordinator):
-    """National Rail"""
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    """Set up journey planner sensors from a config entry."""
+    coordinator: JourneyPlannerCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    description: str = None
-    friendly_name: str = None
-    sensor_name: str = None
+    origin = entry.data.get(CONF_STATION, "?")
+    dests = entry.data.get(CONF_DESTINATIONS, []) or []
+    dest = dests[0] if dests else "?"
+    via = entry.data.get(CONF_VIA)
 
-    def __init__(self, hass: HomeAssistant, token, station, destinations):
-        """Initialize my coordinator."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            # Name of the data. For logging purposes.
-            name=DOMAIN,
-            # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(minutes=REFRESH),
-        )
-        self.token = token
-        destinations = destinations.split(",")
-        self.station = station
-        self.destinations = destinations
-        # self.my_api = NationalRailClient(token, station, destinations, apiTest=False)
-        self.my_api: NationalRailClient = hass.data[DOMAIN][NATIONAL_RAIL_DATA_CLIENT]
-
-        self.last_data_refresh = None
-
-    async def _async_setup(self):
-        await self.my_api.set_header(self.token)
-
-    async def _async_update_data(self):
-        """Fetch data from API endpoint.
-
-        This is the place to pre-process the data to lookup tables
-        so entities can quickly look up their data.
-        """
-        # chek whether we should refresh the data of not
-        if (
-            self.last_data_refresh is None
-            or (
-                self.last_data_refresh is not None
-                and (time.time() - self.last_data_refresh) > POLLING_INTERVALE * 60
-            )
-            # or (
-            #     self.data["next_train_scheduled"] is not None
-            #     and datetime.now(self.data["next_train_scheduled"].tzinfo)
-            #     >= self.data["next_train_scheduled"]
-            #     - timedelta(minutes=HIGH_FREQUENCY_REFRESH)
-            #     and not self.data["next_train_expected"] == "Cancelled"
-            # )
-        ):
-            # try:
-            # Note: asyncio.TimeoutError and aiohttp.ClientError are already
-            # handled by the data update coordinator.
-            async with async_timeout.timeout(30):
-                data = await self.my_api.async_get_data(self.station, self.destinations)
-                self.last_data_refresh = time.time()
-
-            # except aiohttp.ClientError as err:
-            #    raise UpdateFailed(f"Error communicating with API: {err}") from err
-
-            if self.sensor_name is None:
-                self.sensor_name = f"train_schedule_{self.station}{'_' + '_'.join(self.destinations) if len(self.destinations) >0 else ''}"
-
-            if self.description is None:
-                self.description = (
-                    f"Departing/Arriving trains schedule at {data['station']} station"
-                )
-
-            if self.friendly_name is None:
-                self.friendly_name = f"Train schedule at {data['station']} station"
-                if len(self.destinations) == 1:
-                    self.friendly_name += f" for {self.destinations[0]}"
-                elif len(self.destinations) > 1:
-                    self.friendly_name += f" for {'&'.join(self.destinations)}"
-
-            data["name"] = self.sensor_name
-            data["description"] = self.description
-            data["friendly_name"] = self.friendly_name
-
-            # TODO: should have separate `next_train`s for each destination monitored
-            # data["next_train_scheduled"] = None
-            # data["next_train_expected"] = None
-            # data["destinations"] = None
-            # data["terminus"] = None
-            # data["platform"] = None
-            # data["perturbations"] = False
-
-            # for each in data["trains"]:
-            #     if data["next_train_scheduled"] is None and not (
-            #         (
-            #             isinstance(each["expected"], str)
-            #             and each["expected"] == "Cancelled"
-            #         )
-            #         or (
-            #             len(each["destinations"]) > 0
-            #             and isinstance(
-            #                 each["destinations"][0]["time_at_destination"], str
-            #             )
-            #             and each["destinations"][0]["time_at_destination"]
-            #             == "Cancelled"
-            #         )
-            #     ):
-            #         data["next_train_scheduled"] = each["scheduled"]
-            #         data["next_train_expected"] = each["expected"]
-            #         data["destinations"] = each["destinations"]
-            #         data["terminus"] = each["terminus"]
-            #         data["platform"] = each["platform"]
-
-            #     data["perturbations"] = data["perturbations"] or each["perturbation"]
-
-        else:
-            data = self.data
-
-        return data
+    entities: list[SensorEntity] = [
+        NextJourneySensor(coordinator, origin, dest, via, entry.entry_id),
+        ItinerariesSensor(coordinator, origin, dest, via, entry.entry_id),
+    ]
+    async_add_entities(entities)
 
 
-class NationalRailSchedule(CoordinatorEntity):
-    """An entity using CoordinatorEntity.
-
-    The CoordinatorEntity class provides:
-      should_poll
-      async_update
-      async_added_to_hass
-      available
-
-    """
-
-    attribution = "This uses National Rail Darwin Data Feeds"
-
-    _unrecorded_attributes = frozenset({"dests"})
-
-    def __init__(self, coordinator: NationalRailScheduleCoordinator):
-        """Pass coordinator to CoordinatorEntity."""
+class _BaseJourneySensor(CoordinatorEntity[JourneyPlannerCoordinator], SensorEntity):
+    def __init__(
+        self,
+        coordinator: JourneyPlannerCoordinator,
+        origin: str,
+        dest: str,
+        via: Optional[str],
+        entry_id: str,
+    ) -> None:
         super().__init__(coordinator)
-        self.entity_id = f"sensor.{coordinator.data['name'].lower()}"
+        self._origin = origin
+        self._dest = dest
+        self._via = via
+        self._entry_id = entry_id
 
     @property
-    def extra_state_attributes(self):
-        """Return the state attributes."""
-        # print(self.coordinator.data)
-        return self.coordinator.data
+    def device_info(self) -> Dict[str, Any]:
+        name = f"{self._origin} → {self._dest}" + (f" via {self._via}" if self._via else "")
+        return {
+            "identifiers": {(DOMAIN, self._entry_id)},
+            "name": f"National Rail ({name})",
+            "manufacturer": "National Rail / TransportAPI",
+            "model": "Journey Planner",
+        }
+
+
+class NextJourneySensor(_BaseJourneySensor):
+    _attr_icon = "mdi:train"
 
     @property
-    def unique_id(self) -> str | None:
-        """Return a unique ID."""
-        return self.coordinator.data["name"]
+    def name(self) -> str:
+        via = f" via {self._via}" if self._via else ""
+        return f"Next journey {self._origin} → {self._dest}{via}"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
-        return (
-            self.coordinator.last_data_refresh
-        )  # self.coordinator.data["next_train_expected"]
+    def unique_id(self) -> str:
+        via = self._via or ""
+        return f"{self._entry_id}_next_{self._origin}_{self._dest}_{via}"
 
     @property
-    def available(self) -> bool:
-        return True
+    def native_value(self) -> str | None:
+        data = self.coordinator.data or {}
+        itins = data.get("itineraries") or []
+        if not itins:
+            return None
+        first = itins[0]
+        dep = first.get("departure_time")
+        arr = first.get("arrival_time")
+        if dep and arr:
+            return f"{dep} → {arr}"
+        return dep or arr
 
     @property
-    def icon(self) -> str | None:
-        return "mdi:train"
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        data = self.coordinator.data or {}
+        itins = data.get("itineraries") or []
+        if not itins:
+            return {
+                "origin": self._origin,
+                "destination": self._dest,
+                "via": self._via,
+                "itineraries": [],
+            }
+        first = itins[0]
+        return {
+            "origin": self._origin,
+            "destination": self._dest,
+            "via": self._via,
+            "duration": first.get("duration"),
+            "changes": first.get("changes"),
+            "legs": first.get("legs"),
+            "when": (self.coordinator.data or {}).get("when"),
+        }
+
+
+class ItinerariesSensor(_BaseJourneySensor):
+    _attr_icon = "mdi:format-list-bulleted"
+
+    @property
+    def name(self) -> str:
+        via = f" via {self._via}" if self._via else ""
+        return f"Itineraries {self._origin} → {self._dest}{via}"
+
+    @property
+    def unique_id(self) -> str:
+        via = self._via or ""
+        return f"{self._entry_id}_itins_{self._origin}_{self._dest}_{via}"
+
+    @property
+    def native_value(self) -> int | None:
+        itins = (self.coordinator.data or {}).get("itineraries") or []
+        return len(itins) if itins is not None else None
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        data = self.coordinator.data or {}
+        return {
+            "origin": self._origin,
+            "destination": self._dest,
+            "via": self._via,
+            "itineraries": data.get("itineraries") or [],
+            "when": data.get("when"),
+        }
