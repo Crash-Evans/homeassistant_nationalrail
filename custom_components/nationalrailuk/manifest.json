@@ -1,6 +1,6 @@
 {
     "domain": "nationalrailuk",
-    "name": "National Rail UK",
+    "name": "National Rail UK (Sam Fork",
     "config_flow": true,
     "documentation": "https://github.com/plutomedia987/homeassistant_nationalrail",
     "requirements": ["zeep[async]==4.3.1"],
