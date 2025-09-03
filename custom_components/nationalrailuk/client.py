@@ -194,7 +194,7 @@ class NationalRailClient:
                                     )
                         except (KeyError, TypeError, NameError) as err:
                             raise NationalRailClientException(
-                                f"No train services returned from API for {self.station} to {each}"
+                                f"No train services returned from API for {station} to {each}"
                             ) from err
                         except Fault as err:
                             raise NationalRailClientException("Unknown error") from err
@@ -235,7 +235,7 @@ class NationalRailClient:
                 time_act = actual
                 perturbation = True
             elif actual == "No report":
-                time_est = rebuild_date(time_base, "00:00")
+                time_act = rebuild_date(time_base, "00:00")
             else:
                 time_act = rebuild_date(time_base, actual)
                 delay = (time_act - time_shed).total_seconds() / 60
